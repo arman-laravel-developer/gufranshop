@@ -135,6 +135,8 @@
 
 @push('script')
     <script>
+        let cartTotal = 0; // global variable
+
         function deliveryCharge(cost) {
             document.getElementById('deliveryCharge').innerHTML = '৳' + cost;
             document.getElementById('deliveryChargeInput').value = cost;
@@ -143,7 +145,6 @@
 
         function incrementValue(cartId) {
             let qtyInput = document.getElementById('indqty-' + cartId);
-            let unitPrice = parseFloat(document.getElementById('unitprice-' + cartId).value);
             let qty = parseInt(qtyInput.value);
             if (qty < 100) {
                 qty += 1;
@@ -155,7 +156,6 @@
 
         function decrementValue(cartId) {
             let qtyInput = document.getElementById('indqty-' + cartId);
-            let unitPrice = parseFloat(document.getElementById('unitprice-' + cartId).value);
             let qty = parseInt(qtyInput.value);
             if (qty > 1) {
                 qty -= 1;
@@ -164,6 +164,7 @@
                 updateCartQty(cartId, 'decrement');
             }
         }
+
         function updateCartQty(cartId, type) {
             const url = "{{ route('cart.update', ':id') }}".replace(':id', cartId);
 
@@ -180,9 +181,8 @@
                     if (data.updatedQty !== undefined) {
                         // Update quantity input
                         document.getElementById('indqty-' + cartId).value = data.updatedQty;
-
                         document.getElementById('showItemqty-' + cartId).textContent = data.updatedQty + ' item';
-                        // Update subtotal and grand total
+                        // Update totals
                         calculateGrandTotal();
                     }
                 })
@@ -201,37 +201,41 @@
             const deliveryCharge = parseInt(document.getElementById('deliveryChargeInput').value) || 0;
             const grandTotal = total + deliveryCharge;
 
-            document.getElementById("subTotal").textContent ='৳' + total.toFixed(2);
-            document.getElementById("grandTotal").textContent ='৳' + grandTotal.toFixed(2);
+            // update global cartTotal
+            cartTotal = grandTotal;
+
+            document.getElementById("subTotal").textContent = '৳' + total.toFixed(2);
+            document.getElementById("grandTotal").textContent = '৳' + grandTotal.toFixed(2);
             document.getElementById("totalCost").value = grandTotal;
             document.getElementById("prevGrandTotal").value = grandTotal;
         }
 
-        window.addEventListener('load', () => calculateGrandTotal());
-    </script>
+        window.addEventListener('load', () => {
+            calculateGrandTotal();
 
-
-    {{-- Data Layer... --}}
-    <script type = "text/javascript">
-        window.addEventListener('load', function() {
-            dataLayer.push({ ecommerce: null });
+            // Fire GTM event when checkout begins
+            dataLayer.push({ ecommerce: null }); // clear previous ecommerce object
             dataLayer.push({
-                event    : "begin_checkout",
+                event: "begin_checkout",
                 ecommerce: {
-                    currency : "BDT",
-                    value    : cartTotal,
-                    items: [@foreach ($carts as $cart){
-                        item_name     : "{{$cart->product->name}}",
-                        item_id       : "{{$cart->product->id}}",
-                        price         : "{{$cart->product->regular_price}}",
-                        item_brand    : "Unknown",
-                        item_category : "Unknown",
-                        item_variant  : "",
-                        item_list_name: "",
-                        item_list_id  : "",
-                        index         : 0,
-                        quantity      : "{{$cart->qty}}"
-                    },@endforeach]
+                    currency: "BDT",
+                    value: cartTotal,
+                    items: [
+                            @foreach ($carts as $cart)
+                        {
+                            item_name     : "{{ $cart->product->name }}",
+                            item_id       : "{{ $cart->product->id }}",
+                            price         : "{{ $cart->product->regular_price }}",
+                            item_brand    : "Unknown",
+                            item_category : "Unknown",
+                            item_variant  : "",
+                            item_list_name: "",
+                            item_list_id  : "",
+                            index         : 0,
+                            quantity      : "{{ $cart->qty }}"
+                        },
+                        @endforeach
+                    ]
                 }
             });
         });
